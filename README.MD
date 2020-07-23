@@ -2,7 +2,7 @@
 
 ## HEX JS 第五週主線任務 - 表單驗證
 
-- [後台版面連結](https://rockalen.github.io/js-training-week5/index.html)
+- [github page連結](https://rockalen.github.io/js-training-week5/index.html)
 
 
 
