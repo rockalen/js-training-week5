@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@1,900&display=swap" rel="stylesheet">
+    <!-- vue-loading-overlay CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vue-loading-overlay@3.3.2/dist/vue-loading.css">
+    <link rel="stylesheet" href="./assets/style/all.css">
+</head>
+<body>
+    <div id="app" class="container">
+        <nav class="navbar navbar-expand-lg  navbar-dark bg-secondary rounded-lg">
+            <a class="navbar-brand font-weight-bolder shadow px-2" href="#">
+                六角
+                <sub>作業</sub>
+            </a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+              <ul class="navbar-nav">
+                <li class="nav-item active">
+                  <a class="nav-link" href="product.html">產品維護 <span class="sr-only">(current)</span></a>
+                </li>
+                <!-- <li class="nav-item">
+                  <a class="nav-link" href="#">Features</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="#">Pricing</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>
+                </li> -->
+              </ul>
+            </div>
+           
+            <button @click="logout()" class="btn btn-success my-2 my-sm-0" type="button">登出</button>
+            
+          </nav>       
+        <div class="text-right mt-3">
+                <button @click="openModal('new')" class="btn btn-outline-primary">                    
+                <i class="material-icons align-middle">add_circle </i>
+                <span class="align-middle">新增產品</span>             
+            </button>
+        </div>
+        <table class="table mt-4">
+            <thead>
+                <tr>
+                    <th width="150">分類</th>
+                    <th>產品名稱</th>
+                    <th width="120">原價</th>
+                    <th width="100">售價</th>
+                    <th width="120">是否上架</th>
+                    <th width="120">編輯 / 刪除</th>
+                </tr>
+            </thead>
+            <!-- 列出產品 -->
+            <tbody>
+                <tr v-for="(item) in products" :key="item.id">
+                    <td>{{ item.category }}</td>
+                    <td>{{ item.title }}</td>
+                    <td>{{ item.origin_price | money }}</td>
+                    <td>{{ item.price | money }}</td>
+                    <td>
+                        <span v-if="item.enabled" class="text-success d-flex align-items-center">
+                            <a @click="setProductEnabled(item)" class="btn text-success p-0" href="#" role="button" :class="{'disabled':loadingBtn === item.id}">
+                                <i class="material-icons font-size-36">toggle_on </i>                                   
+                            </a>
+                            <sup v-if='loadingBtn === item.id' class="spinner-grow spinner-grow-sm text-success" role="status">
+                            </sup>
+                            <sup v-else > on</sup>
+                        </span>
+                        <span v-else class="text-danger d-flex align-items-center">
+                            <a @click="setProductEnabled(item)" class="btn text-danger p-0" href="#" role="button" :class="{'disabled':loadingBtn === item.id}">
+                                <i class="material-icons font-size-36">toggle_off </i>                                    
+                            </a>
+                            <sub v-if='loadingBtn === item.id' class="spinner-grow spinner-grow-sm text-danger" role="status"></sub>
+                            <sub v-else > off</sub>
+                        </span>
+                    </td>
+                    <td>
+                        <!-- 修改即刪除按鈕，使用v-on:click @click -->
+                        <div class="btn-group">
+                            <button v-on:click="openModal('edit', item)" class="btn btn-outline-success py-1">
+                                <i class="material-icons align-middle">edit</i>
+                            </button>
+                            <button @click="openModal('delete', item)" class="btn btn-outline-danger py-1">
+                                <i class="material-icons align-middle">delete_forever</i>
+                            </button>
+                        </div>  
+                    </td>
+                </tr>
+            </tbody>
+        </table> 
+        <!-- 分頁元件 :pages 取得外層 pagination 頁面資訊 ; @emit-pages 刷新頁面-->
+        <pagination :pages="pagination" @emit-pages="getProducts"></pagination>
+         <!-- Modal -->
+        <product-modal ref="productModel" :status="status" :is-new="isNew" :user="user"  @update="getProducts">
+        </product-modal>
+        <!-- props tempProduct id,title user ; @update 呼叫getProducts-->
+        <del-product-modal :temp-product="tempProduct" :user="user" @update="getProducts"></del-product-modal>
+        <!-- Vue Loading Overlay Component -->
+        <loading :active.sync="isLoading"></loading>
+    </div>
+     <!--Product Modal -->
+    <script type="text/x-template" id="productModal">
+        <div class="modal fade" id="productModal" tabindex="-1" role="dialog" aria-labelledby="productModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl" role="document">
+              <div class="modal-content">
+                <div :class="{'bg-primary': isNew , 'bg-success': !isNew}" class="modal-header text-white">
+                  <h5 v-if="isNew" class="modal-title" id="productModalLabel">新增資料</h5>
+                  <h5 v-else class="modal-title" id="productModalLabel">編輯資料</h5>
+                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true" class="text-white">&times;</span>
+                  </button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="row">
+                            <div class="col-4">
+                                <!-- <div class="form-group">
+                                    <label for="imageUrl" class="col-form-label">輸入圖片網址:</label>
+                                    <input v-model="tempProduct.imageUrl" type="text" class="form-control" id="imageUrl" placeholder="請輸入圖片連結位址">
+                                </div> -->
+                                <div v-for="i in 5" :key="i + 'img'" class="form-group">
+                                    <label :for="'img' + i">輸入圖片網址</label>
+                                    <input :id="'img' + i" v-model="tempProduct.imageUrl[i - 1]" type="text" class="form-control"
+                                      placeholder="請輸入圖片連結">
+                                </div>
+                                <div class="form-group">
+                                    <label for="customFile">
+                                      或 上傳圖片
+                                      <i v-if="status.fileUploading" class="fas fa-spinner fa-spin"></i>
+                                    </label>
+                                    <input id="customFile" ref="file" type="file" class="form-control" @change="uploadFile">
+                                </div>
+                                <!-- <img :src="tempProduct.imageUrl" alt="" class="image-fluid"> -->
+                                <!-- <div v-if="isNew" class="d-none"></div> -->
+                              
+                                <div class="card">
+                                    <img class="card-img-top" :src="tempProduct.imageUrl[0]" alt>
+                                    <div class="card-body">
+                                      <p v-if="isNew" class="card-text">輸入圖片網址後立即預覽圖片</p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="imgStyle" class="col-form-label">Image Style:</label>
+                                    <input v-model="tempProduct.options.imgStyle" type="text" class="form-control" id="imgStyle" placeholder="請輸入圖片樣式(css)">
+                                </div>
+                            </div>
+                            <div class="col-8">
+                                <div class="form-group">
+                                    <label for="title" class="col-form-label">標題</label>
+                                    <input v-model="tempProduct.title" type="text" class="form-control" id="title" placeholder="請輸入產品標題">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="category" class="col-form-label">類別</label>
+                                        <input v-model="tempProduct.category" type="text" class="form-control" id="category" placeholder="請輸入類別">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="unit" class="col-form-label">單位</label>
+                                        <input v-model="tempProduct.unit" type="unit" class="form-control" id="unit" placeholder="請輸入單位">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="origin_price" class="col-form-label">原價</label>
+                                        <input v-model="tempProduct.origin_price" type="number" class="form-control" id="origin_price" placeholder="請輸入原價">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="price" class="col-form-label">售價</label>
+                                        <input v-model="tempProduct.price" type="number" class="form-control" id="price" placeholder="請輸入售價">
+                                    </div>
+                                </div>                                   
+                                <div class="form-group">
+                                    <label for="description" class="col-form-label">產品描述</label>
+                                    <textarea v-model="tempProduct.description" class="form-control" id="description" placeholder="請輸入產品描述"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="content" class="col-form-label">產品內容介紹</label>
+                                    <textarea v-model="tempProduct.content" class="form-control" id="content" placeholder="請輸入產品內容介紹"></textarea>
+                                </div>  
+                                <div class="form-row">
+                                    <div class="form-group col-md-4">
+                                        <div class="form-check">
+                                            <input id="onSale" v-model="tempProduct.options.onSale" class="form-check-input" type="checkbox"
+                                              :true-value="true" :false-value="false">
+                                            <label class="form-check-label" for="onSale">是否特價</label>
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-md-5">
+                                        <div class="form-check">
+                                            <input id="is_enabled" v-model="tempProduct.enabled" class="form-check-input" type="checkbox"
+                                              :true-value="true" :false-value="false">
+                                            <label class="form-check-label" for="is_enabled">是否上架(顯示於前台)</label>
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-md-3">
+                                      <label for="order" class="col-form-label">顯示序號</label>
+                                      <input v-model="tempProduct.options.order" class="form-control" type="number" name="order" id="order" placeholder="請輸入顯示序號" >                                         
+                                    </div>
+                                </div>
+                            </div>                            
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                  <button @click="updateProduct()" type="button" :class="{'btn-primary':isNew,'btn-success':!isNew}" class="btn">確認送出</button>
+                </div>
+              </div>
+            </div>
+             <!-- Vue Loading Overlay Component -->
+        <loading :active.sync="isLoading"></loading>
+        </div>    
+    </script>
+    
+    <!-- Delete Modal -->
+    <script type="text/x-template" id="delProductModal">
+        <div class="modal fade" id="delProductModal" tabindex="-1" role="dialog" aria-labelledby="delModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header text-white bg-danger border-danger">
+                    <h5 class="modal-title font-weight-normal" id="delModalLabel">刪除產品</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div  class="modal-body">
+                    確定要刪除 <strong class="text-danger font-weight-bold"> {{ tempProduct.title }} </strong> 嗎?
+                    <p class="text-danger text-right mb-0">注意!!刪除後將無法復原</p>
+                </div>
+                <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                <button @click="delProduct()" type="button" class="btn btn-danger">確認刪除</button>
+                </div>
+            </div>
+            </div>
+        </div>
+    </script>
+    <!-- pagination template分頁元件建立 -->
+    <script type="text/x-template" id="pagination">
+        <nav aria-label="Page navigation example">
+          <ul class="pagination">
+            <li
+              class="page-item"
+              :class="{'disabled': pages.current_page === 1}"
+            >
+              <a
+                class="page-link"
+                href="#"
+                aria-label="Previous"
+                @click.prevent="emitPages(pages.current_page - 1)"
+              >
+                <span aria-hidden="true">&laquo;</span>
+              </a>
+            </li>
+            <li
+              v-for="(item, index) in pages.total_pages"
+              :key="index"
+              class="page-item"
+              :class="{'active': item === pages.current_page}"
+            >
+              <a
+                class="page-link"
+                href="#"
+                @click.prevent="emitPages(item)"
+              >{{ item }}</a>
+            </li>
+            <li
+              class="page-item"
+              :class="{'disabled': pages.current_page === pages.total_pages}"
+            >
+              <a
+                class="page-link"
+                href="#"
+                aria-label="Next"
+    
+                @click.prevent="emitPages(pages.current_page + 1)"
+              >
+                <span aria-hidden="true">&raquo;</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+    </script>
+   
+
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+      integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous">
+      </script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+      integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous">
+      </script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+      integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous">
+      </script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+      <!-- vue CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <!-- vue-loading-overlay CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue-loading-overlay@3.3.2/dist/vue-loading.min.js"></script>
+    <script>
+        // 產品操作Modal元件
+        Vue.component('productModal',{
+            template:'#productModal', 
+            data(){
+                return {                 
+                    tempProduct:{
+                        imageUrl:[],
+                        options: {},
+                    },
+                    isLoading:false,
+                };
+            },
+            props:{
+                productid:{
+                    type:String,
+                    default:'',
+                },
+                status:{
+                    type:Object,
+                    default(){
+                        return {
+                        };
+                    },
+                },
+                isNew:{
+                    type:Boolean,
+                    default:true,
+                },             
+                user:{
+                    type:Object,
+                    default(){
+                        return{
+                        };
+                    },
+                },
+               
+            },
+            methods:{
+                // 抓取個別產品資料函數
+                getProduct(id){
+                    // 遠端存取Loading畫面打開
+                    this.isLoading = true;
+                    // 設定 API 遠端連線字串
+                    const api = `${this.user.apiPath}${this.user.uuid}/admin/ec/product/${id}`;
+                    axios.get(api).then((res)=>{
+                        $('#productModal').modal('show');
+                        // 透過 axios API 取回遠端產品資料
+                        this.tempProduct = res.data.data;
+                        // 遠端存取Loading畫面關閉
+                        this.isLoading = false;                      
+                    }).catch((error)=>{
+                        console.log(error);
+                    });
+                },
+                // 新增、更新個別產品函數
+                updateProduct(){
+                    // 定義要更新的API，如果新增，則httpMethod操作為post，編輯為patch
+                    const apiUrl = `${this.user.apiPath}${this.user.uuid}`;
+                    let api = `${apiUrl}/admin/ec/product`;                    
+                    // 注意httpMethod要小寫
+                    let httpMethod = 'post';
+                    // 設定更新產品api路徑
+                    if (!this.isNew) {
+                        api = `${apiUrl}/admin/ec/product/${this.tempProduct.id}`;
+                        httpMethod = 'patch';
+                    }
+                    // token已定義在created時期
+                    //axios.defaults.headers.common.Authorization = `Bearer ${this.user.token}`;
+                    //axios.defaults.headers.common['Authorization'] = `Bearer ${this.user.token}`;
+                    // 透過 axios[httpMethod] 執行post 或 patch 操作
+                    axios[httpMethod](api, this.tempProduct).then(() => {                      
+                        $('#productModal').modal('hide');
+                        // 呼叫外層更新畫面
+                        this.$emit('update');
+                    }).catch((error) => {
+                        console.log(error)
+                    });
+
+                },
+                // 參考範例加入上傳檔案
+                uploadFile() {
+                    const uploadedFile = this.$refs.file.files[0];
+                    const formData = new FormData();
+                    formData.append('file', uploadedFile);
+                    const url = `https://course-ec-api.hexschool.io/api/${this.user.uuid}/admin/storage`;
+                    this.status.fileUploading = true;
+                    axios.post(url, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                    }).then((response) => {
+                    this.status.fileUploading = false;
+                    if (response.status === 200) {
+                        this.tempProduct.imageUrl.push(response.data.data.path);
+                    }
+                    }).catch(() => {
+                    console.log('上傳不可超過 2 MB');
+                    this.status.fileUploading = false;
+                    });
+                },
+            },
+        });
+        // 分頁元件
+        Vue.component('pagination', {
+        template: '#pagination',
+        data() {
+          return {
+          };
+        },
+        props: {
+          pages: {
+            type: Object,
+            default() {
+              return {
+              };
+            },
+          },
+        },
+        methods: {
+          emitPages(item) {
+            this.$emit('emit-pages', item);
+          },
+        },
+      });
+        // 刪除產品元件
+        Vue.component('delProductModal', {
+            template: '#delProductModal',
+            data() {
+                return {     
+                };
+            },
+            props: {
+                tempProduct: {
+                    type: Object,
+                    default(){
+                        return {
+                            imageUrl:[],
+                        };
+                    },
+                },
+                user:{
+                    type:Object,
+                    default(){
+                        return{
+                        };
+                    },
+                },
+            },
+            methods: {
+                delProduct() {
+                    // 1.透過外層取得API路徑及產品ID等資訊
+                    const api = `${this.user.apiPath}${this.user.uuid}/admin/ec/product/${this.tempProduct.id}`;                    
+                    // 2.透過 axios.delete 非同步刪除資料，刪除成功後執行then
+                    axios.delete(api).then((res) =>{
+                        // 3.關閉刪除視窗
+                        $('#delProductModal').modal('hide');
+                        // 4.利用$emit呼叫外層更新畫面
+                        this.$emit('update');
+                    }).catch((error) =>{
+                        console.log(error);
+                    })
+                    
+                }
+            },
+        });
+        // Vue Loading Overlay Component
+        Vue.component('loading',VueLoading);
+    </script>
+    <script src="./assets/script/all.js"></script>
+</body>
+</html>

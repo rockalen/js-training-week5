@@ -1,0 +1,16 @@
+// bootstrap scss
+@import "../../../node_modules/bootstrap/scss/functions";
+@import "sass/variables"; // 複製一份 variable 來覆蓋
+@import "../../../node_modules/bootstrap/scss/mixins";
+$font-sizes: (48, 36, 32, 24, 20, 16, 14, 12, 10);
+@import "sass/font-sizes";
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+.cardBg{
+    height: 250px;
+    object-fit: cover;
+    background-size: cover;
+    background-position: center;
+}
